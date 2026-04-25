@@ -149,35 +149,8 @@ class PacEngine:
 
         return True
 
-    def proof_complete(self, signal: PacSignal) -> bool:
+    def evaluate_proof_state(self, signal: PacSignal) -> Dict[str, Any]:
         threshold = self.required_threshold(signal.risk_level)
-
-        failed_constraints = signal.constraints.failed_constraints()
-        missing_stages = signal.stages.missing_stages()
-
-        evidence_valid = signal.evidence_level >= threshold
-        path_valid = self.evidence_path_valid(signal)
-        blocking_failure = signal.failures.has_blocking_failure()
-        temporal_valid = signal.temporal.state_valid()
-
-        r4_cycles_valid = (
-            signal.risk_level != RiskLevel.R4_SYSTEM_CRITICAL
-            or signal.temporal.stable_multi_cycle_count >= 2
-        )
-
-        return (
-            evidence_valid
-            and path_valid
-            and len(failed_constraints) == 0
-            and len(missing_stages) == 0
-            and not blocking_failure
-            and temporal_valid
-            and r4_cycles_valid
-        )
-
-    def evaluate(self, signal: PacSignal) -> EvaluationResult:
-        threshold = self.required_threshold(signal.risk_level)
-        reasons: List[str] = []
 
         failed_constraints = signal.constraints.failed_constraints()
         missing_stages = signal.stages.missing_stages()
@@ -202,25 +175,50 @@ class PacEngine:
             and r4_cycles_valid
         )
 
+        return {
+            "threshold": threshold,
+            "failed_constraints": failed_constraints,
+            "missing_stages": missing_stages,
+            "evidence_valid": evidence_valid,
+            "path_valid": path_valid,
+            "blocking_failure": blocking_failure,
+            "temporal_valid": temporal_valid,
+            "r4_cycles_valid": r4_cycles_valid,
+            "proof": proof,
+        }
+
+    def proof_complete(self, signal: PacSignal) -> bool:
+        return self.evaluate_proof_state(signal)["proof"]
+
+    def evaluate(self, signal: PacSignal) -> EvaluationResult:
+        state = self.evaluate_proof_state(signal)
+
+        threshold = state["threshold"]
+        failed_constraints = state["failed_constraints"]
+        missing_stages = state["missing_stages"]
+        proof = state["proof"]
+
+        reasons: List[str] = []
+
         if failed_constraints:
             reasons.append("Constraint failure detected")
 
         if missing_stages:
             reasons.append(f"Missing stages: {missing_stages}")
 
-        if not path_valid:
+        if not state["path_valid"]:
             reasons.append("Evidence path invalid")
 
-        if not evidence_valid:
+        if not state["evidence_valid"]:
             reasons.append("Insufficient evidence level")
 
-        if blocking_failure:
+        if state["blocking_failure"]:
             reasons.append("Failure condition present")
 
-        if not temporal_valid:
+        if not state["temporal_valid"]:
             reasons.append("Temporal invalidation")
 
-        if not r4_cycles_valid:
+        if not state["r4_cycles_valid"]:
             reasons.append("Insufficient multi-cycle validation")
 
         if proof:
@@ -241,6 +239,7 @@ class PacEngine:
             failed_constraints,
             missing_stages,
         )
+
 if __name__ == "__main__":
 
     signal = PacSignal(
