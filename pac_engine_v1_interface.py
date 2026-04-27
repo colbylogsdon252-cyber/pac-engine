@@ -69,7 +69,79 @@ def serialize_result(
     }
 
 
+
+def _halt_interface_error(signal_id, message):
+    return {
+        "signal_id": signal_id,
+        "decision": "HALT",
+        "proof_complete": False,
+        "required_threshold": None,
+        "reasons": ["Interface input error", message],
+        "failed_constraints": [],
+        "missing_stages": [],
+        "proof_state": {},
+    }
+
+
+def _require_dict(payload, key):
+    value = payload.get(key)
+    if not isinstance(value, dict):
+        return False, f'"{key}" must be an object/dict'
+    return True, None
+
+
+def _require_bool_map(section, section_name):
+    for key, value in section.items():
+        if type(value) is not bool:
+            return False, f'"{section_name}.{key}" must be bool'
+    return True, None
+
+
+def _validate_interface_schema(payload):
+    if not isinstance(payload, dict):
+        return False, "payload must be an object/dict"
+
+    signal_id = payload.get("signal_id", "UNKNOWN")
+
+    for required in ("risk_level", "evidence_level", "constraints", "stages", "failures", "temporal"):
+        if required not in payload:
+            return False, f'missing required field "{required}"'
+
+    for section_name in ("constraints", "stages", "failures", "temporal"):
+        ok, error = _require_dict(payload, section_name)
+        if not ok:
+            return False, error
+
+    ok, error = _require_bool_map(payload["constraints"], "constraints")
+    if not ok:
+        return False, error
+
+    ok, error = _require_bool_map(payload["stages"], "stages")
+    if not ok:
+        return False, error
+
+    failures = payload["failures"]
+    if not isinstance(failures.get("known_failures", []), list):
+        return False, '"failures.known_failures" must be list'
+    if not isinstance(failures.get("suspected_failures", []), list):
+        return False, '"failures.suspected_failures" must be list'
+    if type(failures.get("contradiction_detected", False)) is not bool:
+        return False, '"failures.contradiction_detected" must be bool'
+
+    temporal = payload["temporal"]
+    if not isinstance(temporal.get("state_id_at_proof"), str):
+        return False, '"temporal.state_id_at_proof" must be string'
+    if not isinstance(temporal.get("current_state_id"), str):
+        return False, '"temporal.current_state_id" must be string'
+    if type(temporal.get("stable_multi_cycle_count")) is not int:
+        return False, '"temporal.stable_multi_cycle_count" must be int'
+
+    return True, None
+
 def evaluate_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    schema_valid, schema_error = _validate_interface_schema(payload)
+    if not schema_valid:
+        return _halt_interface_error(payload.get("signal_id", "UNKNOWN") if isinstance(payload, dict) else "UNKNOWN", schema_error)
     engine = PacEngine()
 
     try:
