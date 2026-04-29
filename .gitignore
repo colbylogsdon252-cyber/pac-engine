@@ -2,3 +2,6 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+# PAC test artifacts
+*_payload*.json
