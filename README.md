@@ -261,9 +261,9 @@ Failure Classification:
 - False approval under insufficient validation surface
 - High-evidence bypass of structural verification
 - Missing enforcement coupling between:
-  - evidence level
-  - validation stages
-  - constraint completeness
+- evidence level
+- validation stages
+- constraint completeness
 
 ---
 
@@ -285,7 +285,7 @@ This creates a **false proof completion condition**.
 
 This is a **critical integrity violation** of PAC guarantees:
 
-> PAC guarantees that unproven actions will not be executed.
+PAC guarantees that unproven actions will not be executed.
 
 This condition violates that guarantee.
 
@@ -361,3 +361,70 @@ Frozen Artifacts:
 - README.md
 
 ====================================================================
+
+
+---
+
+# PAC Engine (Proof-Aware Constraint Validation)
+
+PAC is a deterministic validation engine that enforces a strict rule:
+
+No action is executed unless proof is complete.
+
+PAC does not attempt to be correct.
+PAC guarantees that unproven actions are not executed.
+
+---
+
+# Core Concept
+
+PAC evaluates a structured payload and returns a decision:
+
+- APPROVE → proof complete, execution allowed
+- HALT → insufficient proof, execution blocked
+- REJECT → constraint failure, execution denied
+
+---
+
+# Input Contract
+
+{
+"signal_id": "string",
+"evidence": [],
+"threshold": "L1 | L2 | L3 | L4 | L5"
+}
+
+---
+
+# Output Contract
+
+{
+"decision": "APPROVE | HALT | REJECT",
+"proof_complete": true,
+"required_threshold": "string",
+"reasons": [],
+"failed_constraints": [],
+"missing_stages": [],
+"proof_state": {}
+}
+
+---
+
+# CLI Usage
+
+python pac_cli.py test_payload.json
+
+---
+
+# API Usage
+
+python -m uvicorn pac_api:app --host 0.0.0.0 --port 8000 --reload
+
+curl -X POST http://127.0.0.1:8000/validate -H "Content-Type: application/json" -d @test_payload.json
+
+---
+
+# Version
+
+v1.4-pac-engine-mvp-stable
+
