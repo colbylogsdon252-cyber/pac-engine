@@ -1,7 +1,8 @@
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
-
-# PAC test artifacts
-*_payload*.json
+.venv/
+.pytest_cache/
+*.bak
+*.tmp
+*.log
+.vscode/
