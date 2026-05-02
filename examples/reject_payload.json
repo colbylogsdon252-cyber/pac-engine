@@ -1,0 +1,38 @@
+{
+  "signal_id": "PAC-DEMO-REJECT-001",
+  "description": "Valid interface signal",
+  "scope": "interface_demo",
+  "risk_level": "R3_CROSS_COMPONENT",
+  "evidence_level": "L5_VERIFIED_EXECUTION",
+  "constraints": {
+    "distinctness": true,
+    "boundary_integrity": true,
+    "structural_independence": true,
+    "referential_integrity": true,
+    "context_validity": true,
+    "non_aliasing": true,
+    "completeness": false
+  },
+  "stages": {
+    "signal_detection": true,
+    "structural_validation": true,
+    "equality_consistency_check": true,
+    "constraint_verification": true,
+    "failure_mode_analysis": true,
+    "global_confirmation": true,
+    "enforcement_decision_ready": true
+  },
+  "failures": {
+    "known_failures": [],
+    "suspected_failures": [],
+    "contradiction_detected": false
+  },
+  "temporal": {
+    "state_id_at_proof": "STATE-A",
+    "current_state_id": "STATE-A",
+    "stable_multi_cycle_count": 2
+  },
+  "metadata": {
+    "source": "interface_demo"
+  }
+}

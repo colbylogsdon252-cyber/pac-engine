@@ -1,0 +1,83 @@
+{
+  "contract_id": "PAC-FROZEN-CONTRACT-V1",
+  "contract_version": "1.0.0",
+  "frozen_reference": {
+    "git_tag": "PAC-V1-FROZEN",
+    "repo": "pac-engine",
+    "status": "portable_contract_snapshot"
+  },
+  "contract_rule": "No action is executed unless proof is complete.",
+  "purpose": "Portable external contract defining the required executable PAC signal shape for PAC Engine V1.",
+  "top_level_required_fields": [
+    "signal_id",
+    "description",
+    "scope",
+    "risk_level",
+    "evidence_level",
+    "constraints",
+    "stages",
+    "failures",
+    "temporal"
+  ],
+  "field_contract": {
+    "signal_id": "string",
+    "description": "string",
+    "scope": "string",
+    "risk_level": "RiskLevel enum name",
+    "evidence_level": "EvidenceLevel enum name",
+    "constraints": "object containing boolean PAC constraint flags",
+    "stages": "object containing boolean PAC validation stage flags",
+    "failures": "object containing failure-analysis state",
+    "temporal": "object containing proof-state temporal validity data",
+    "metadata": "optional object"
+  },
+  "constraints_required": {
+    "distinctness": "bool",
+    "boundary_integrity": "bool",
+    "structural_independence": "bool",
+    "referential_integrity": "bool",
+    "context_validity": "bool",
+    "non_aliasing": "bool",
+    "completeness": "bool"
+  },
+  "stages_required": {
+    "signal_detection": "bool",
+    "structural_validation": "bool",
+    "equality_consistency_check": "bool",
+    "constraint_verification": "bool",
+    "failure_mode_analysis": "bool",
+    "global_confirmation": "bool",
+    "enforcement_decision_ready": "bool"
+  },
+  "failures_required": {
+    "known_failures": "list",
+    "suspected_failures": "list",
+    "contradiction_detected": "bool"
+  },
+  "temporal_required": {
+    "state_id_at_proof": "string",
+    "current_state_id": "string",
+    "stable_multi_cycle_count": "int"
+  },
+  "decision_contract": {
+    "APPROVE": {
+      "meaning": "Proof complete; execution allowed.",
+      "cli_exit_code": 0
+    },
+    "HALT": {
+      "meaning": "Proof incomplete; execution blocked.",
+      "cli_exit_code": 1
+    },
+    "REJECT": {
+      "meaning": "Constraint failure detected; execution denied.",
+      "cli_exit_code": 2
+    }
+  },
+  "portable_use": {
+    "engine_independent": true,
+    "can_validate_payload_shape": true,
+    "can_generate_examples": true,
+    "does_not_replace_engine_logic": true
+  },
+  "pac_guarantee": "PAC does not guarantee correctness of signals. PAC guarantees that unproven actions will not be executed."
+}

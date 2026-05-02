@@ -6,3 +6,11 @@ __pycache__/
 *.tmp
 *.log
 .vscode/
+# Local test payloads
+test_payload*.json
+
+# Temp payload generation artifacts
+*_payload_*.json
+
+# Safety: prevent accidental contract backups
+contracts/*.bak
