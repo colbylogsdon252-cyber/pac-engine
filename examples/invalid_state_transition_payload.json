@@ -1,0 +1,10 @@
+{
+  "action": true,
+  "target": {
+    "id": "T-002",
+    "type": "example"
+  },
+  "proof_timestamp": 1777897929,
+  "current_state": "draft",
+  "requested_state": "approved"
+}
