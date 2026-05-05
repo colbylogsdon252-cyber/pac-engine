@@ -4,5 +4,7 @@
     "id": "T-001",
     "type": "example"
   },
-  "proof_timestamp": 1777826798
+  "proof_timestamp": 1777937820,
+  "current_state": "draft",
+  "requested_state": "validated"
 }
