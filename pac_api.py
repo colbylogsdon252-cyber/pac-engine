@@ -1,78 +1,54 @@
-from fastapi import FastAPI, Request
-from pydantic import BaseModel
-from typing import List
+from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-from pac_engine_v1_interface import evaluate_payload
+import uvicorn
 
-
-app = FastAPI(
-    title="PAC Validation API",
-    version="1.0.0",
-    description="Production-grade PAC validation and enforcement API."
+from pac_contract_validator import (
+    load_contract,
+    validate_payload,
+    classify_errors
 )
 
+app = FastAPI(
+    title="PAC API v1",
+    version="1.0.0"
+)
 
-def status_for_decision(decision: str) -> int:
-    if decision == "APPROVE":
-        return 200
-    if decision == "REJECT":
-        return 422
-    if decision == "HALT":
-        return 400
-    return 500
+CONTRACT = load_contract()
 
 
-@app.get("/health")
-def health():
+@app.get("/")
+def root():
     return {
-        "status": "ok",
-        "service": "pac-validation-api",
-        "version": "1.0.0"
+        "system": "PAC API v1",
+        "status": "online",
+        "validation_engine": "active"
     }
 
 
 @app.post("/validate")
-async def validate(request: Request):
-    try:
-        payload = await request.json()
-    except Exception as exc:
+def validate(payload: dict):
+    errors = validate_payload(payload, CONTRACT)
+
+    if errors:
         return JSONResponse(
             status_code=400,
             content={
-                "decision": "HALT",
-                "proof_complete": False,
-                "required_threshold": None,
-                "reasons": ["Invalid JSON input"],
-                "failed_constraints": [],
-                "missing_stages": [],
-                "proof_state": {},
-                "error": str(exc)
+                "valid": False,
+                "errors": errors,
+                "error_classification": classify_errors(errors)
             }
         )
 
-    try:
-        result = evaluate_payload(payload)
-    except Exception as exc:
-        return JSONResponse(
-            status_code=500,
-            content={
-                "decision": "HALT",
-                "proof_complete": False,
-                "required_threshold": None,
-                "reasons": ["PAC API execution error"],
-                "failed_constraints": [],
-                "missing_stages": [],
-                "proof_state": {},
-                "error": str(exc)
-            }
-        )
-
-    return JSONResponse(
-        status_code=status_for_decision(result.get("decision")),
-        content=result
-    )
+    return {
+        "valid": True,
+        "message": "Payload conforms to PAC contract"
+    }
 
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("pac_api:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(
+        "pac_api:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True
+    )
