@@ -13,6 +13,66 @@ def load_json(path):
         return None, f"Failed to load JSON: {e}"
 
 
+
+def classify_error(message):
+    msg = str(message)
+
+    if msg.startswith("temporal."):
+        category = "temporal"
+        severity = "high"
+    elif msg.startswith("state_transition.") or "state transition" in msg or "current state" in msg or "requested state" in msg:
+        category = "state_transition"
+        severity = "high"
+    elif "payload must be an object/dict" in msg:
+        category = "payload_type"
+        severity = "critical"
+    elif "contract" in msg or "enforceable rules" in msg:
+        category = "contract_integrity"
+        severity = "critical"
+    elif "missing required field" in msg or "field" in msg:
+        category = "schema"
+        severity = "medium"
+    elif msg.startswith("failures."):
+        category = "failure_model"
+        severity = "medium"
+    else:
+        category = "validation"
+        severity = "medium"
+
+    code = msg.split(":", 1)[0].strip().replace(" ", "_").lower()
+
+    return {
+        "code": code,
+        "category": category,
+        "severity": severity,
+        "message": msg
+    }
+
+
+def classify_errors(errors):
+    return [classify_error(error) for error in errors]
+
+
+def emit_invalid(errors, exit_code=3, error_type=None):
+    output = {
+        "valid": False,
+        "errors": errors,
+        "error_classification": classify_errors(errors)
+    }
+    if error_type is not None:
+        output["error_type"] = error_type
+    print(json.dumps(output, indent=2))
+    sys.exit(exit_code)
+
+
+def emit_valid(message="Payload conforms to PAC contract"):
+    print(json.dumps({
+        "valid": True,
+        "message": message
+    }, indent=2))
+    sys.exit(0)
+
+
 def load_contract():
     try:
         return json.loads(CONTRACT_PATH.read_text())
@@ -335,62 +395,34 @@ def validate_state_transition_contract(contract):
 
     state_contract_errors = validate_state_transition_contract(contract)
     if state_contract_errors:
-        print(json.dumps({
-            "valid": False,
-            "errors": state_contract_errors
-        }, indent=2))
-        sys.exit(3)
+        emit_invalid(state_contract_errors, 3)
 
 
     # PAC: contract integrity enforcement
     if not contract.get('required_fields') and not contract.get('field_types'):
-        print(json.dumps({
-            "valid": False,
-            "errors": ["contract defines no enforceable rules"]
-        }, indent=2))
-        sys.exit(3)
+        emit_invalid(["contract defines no enforceable rules"], 3)
 
     temporal_errors = validate_temporal_validity(payload, contract)
 
     if temporal_errors:
-        print(json.dumps({
-            "valid": False,
-            "errors": temporal_errors
-        }, indent=2))
-        sys.exit(3)
+        emit_invalid(temporal_errors, 3)
 
 
     state_errors = validate_state_transition(payload, contract)
     if state_errors:
-        print(json.dumps({
-            "valid": False,
-            "errors": state_errors
-        }, indent=2))
-        sys.exit(3)
+        emit_invalid(state_errors, 3)
 
     schema_errors = validate_against_contract(payload, contract)
     if schema_errors:
-        print(json.dumps({
-            "valid": False,
-            "errors": schema_errors
-        }, indent=2))
-        sys.exit(3)
+        emit_invalid(schema_errors, 3)
 
 
     errors = validate_payload(payload, contract)
 
     if errors:
-        print(json.dumps({
-            "valid": False,
-            "errors": errors
-        }, indent=2))
-        sys.exit(1)
+        emit_invalid(errors, 1)
 
-    print(json.dumps({
-        "valid": True,
-        "message": "Payload conforms to PAC contract"
-    }, indent=2))
-    sys.exit(0)
+    emit_valid("Payload conforms to PAC contract")
 
 
 
@@ -407,67 +439,35 @@ def main():
         sys.exit(3)
 
     if not isinstance(payload, dict):
-        print(json.dumps({
-            "valid": False,
-            "errors": ["payload must be an object/dict"]
-        }, indent=2))
-        sys.exit(3)
+        emit_invalid(["payload must be an object/dict"], 3)
 
     contract = load_contract()
 
     # PAC: contract integrity enforcement
     if not contract.get('required_fields') and not contract.get('field_types'):
-        print(json.dumps({
-            "valid": False,
-            "errors": ["contract defines no enforceable rules"]
-        }, indent=2))
-        sys.exit(3)
+        emit_invalid(["contract defines no enforceable rules"], 3)
 
     state_contract_errors = validate_state_transition_contract(contract)
     if state_contract_errors:
-        print(json.dumps({
-            "valid": False,
-            "errors": state_contract_errors
-        }, indent=2))
-        sys.exit(3)
+        emit_invalid(state_contract_errors, 3)
 
     temporal_errors = validate_temporal_validity(payload, contract)
     if temporal_errors:
-        print(json.dumps({
-            "valid": False,
-            "errors": temporal_errors
-        }, indent=2))
-        sys.exit(3)
+        emit_invalid(temporal_errors, 3)
 
     state_errors = validate_state_transition(payload, contract)
     if state_errors:
-        print(json.dumps({
-            "valid": False,
-            "errors": state_errors
-        }, indent=2))
-        sys.exit(3)
+        emit_invalid(state_errors, 3)
 
     schema_errors = validate_against_contract(payload, contract)
     if schema_errors:
-        print(json.dumps({
-            "valid": False,
-            "errors": schema_errors
-        }, indent=2))
-        sys.exit(3)
+        emit_invalid(schema_errors, 3)
 
     errors = validate_payload(payload, contract)
     if errors:
-        print(json.dumps({
-            "valid": False,
-            "errors": errors
-        }, indent=2))
-        sys.exit(1)
+        emit_invalid(errors, 1)
 
-    print(json.dumps({
-        "valid": True,
-        "message": "Payload conforms to PAC contract"
-    }, indent=2))
-    sys.exit(0)
+    emit_valid("Payload conforms to PAC contract")
 
 if __name__ == "__main__":
     main()
