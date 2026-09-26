@@ -23,9 +23,13 @@
     "enabled": true,
     "timestamp_field": "proof_timestamp",
     "required_fields": [
-      "proof_timestamp"
+      "proof_timestamp",
+      "state_id_at_proof",
+      "current_state_id"
     ],
-    "max_age_seconds": 300
+    "max_age_seconds": 300,
+    "state_id_at_proof_field": "state_id_at_proof",
+    "current_state_id_field": "current_state_id"
   },
   "state_transitions": {
     "enabled": true,
