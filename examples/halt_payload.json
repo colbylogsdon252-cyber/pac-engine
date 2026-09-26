@@ -35,5 +35,7 @@
   "metadata": {
     "source": "interface_demo"
   },
-  "proof_timestamp": 1778381368
+  "proof_timestamp": 1778381368,
+  "state_id_at_proof": "STATE-A",
+  "current_state_id": "STATE-A"
 }
