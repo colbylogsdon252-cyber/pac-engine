@@ -90,6 +90,8 @@ def validate_temporal_validity(payload, contract):
         return []
 
     timestamp_field = temporal.get("timestamp_field", "proof_timestamp")
+    state_id_at_proof_field = temporal.get("state_id_at_proof_field", "state_id_at_proof")
+    current_state_id_field = temporal.get("current_state_id_field", "current_state_id")
     required_fields = temporal.get("required_fields", [])
     max_age_seconds = temporal.get("max_age_seconds")
 
@@ -103,9 +105,17 @@ def validate_temporal_validity(payload, contract):
         return errors
 
     proof_timestamp = payload.get(timestamp_field)
+    state_id_at_proof = payload.get(state_id_at_proof_field)
+    current_state_id = payload.get(current_state_id_field)
 
     if not isinstance(proof_timestamp, int):
         return [f"temporal.{timestamp_field} must be int epoch seconds"]
+
+    if not isinstance(state_id_at_proof, str):
+        return [f"temporal.{state_id_at_proof_field} must be string"]
+
+    if not isinstance(current_state_id, str):
+        return [f"temporal.{current_state_id_field} must be string"]
 
     if not isinstance(max_age_seconds, int):
         return ["temporal.max_age_seconds must be int"]
@@ -116,7 +126,14 @@ def validate_temporal_validity(payload, contract):
         return [f"temporal.{timestamp_field} cannot be in the future"]
 
     if now - proof_timestamp > max_age_seconds:
-        return [f"temporal proof expired: age_seconds={now - proof_timestamp}, max_age_seconds={max_age_seconds}"]
+        return [f"temporal.proof_expired: age_seconds={now - proof_timestamp}, max_age_seconds={max_age_seconds}"]
+
+    if state_id_at_proof != current_state_id:
+        return [
+            f"temporal.proof_invalidated: "
+            f"{state_id_at_proof_field}={state_id_at_proof}, "
+            f"{current_state_id_field}={current_state_id}"
+        ]
 
     return []
 
@@ -290,18 +307,6 @@ def validate_failures(section):
 
     return errors
 
-
-
-    if not isinstance(section.get("state_id_at_proof"), str):
-        errors.append("temporal.state_id_at_proof must be string")
-
-    if not isinstance(section.get("current_state_id"), str):
-        errors.append("temporal.current_state_id must be string")
-
-    if not isinstance(section.get("stable_multi_cycle_count"), int):
-        errors.append("temporal.stable_multi_cycle_count must be int")
-
-    return errors
 
 
 def validate_payload(payload, contract):

@@ -83,7 +83,9 @@ A material change to the state or conditions for which proof was established inv
 
 PAC must not silently carry proof authority across a material state mutation.
 
-The exact implementation field used to bind proof to state is intentionally not defined by this specification. Introducing or changing a payload or contract field is a separate schema decision and requires explicit authorization.
+The canonical implementation reuses PAC's existing state-binding identifiers: `state_id_at_proof` records the state against which proof was established, and `current_state_id` records the state presented for the current evaluation. A mismatch invalidates proof. No new state-binding field is introduced.
+
+These identifiers are required temporal inputs in the frozen contract. Missing, malformed, or mismatched state-binding data fails closed through the canonical temporal validator.
 
 ## Enforcement Rule
 
@@ -100,6 +102,8 @@ Temporal uncertainty must never be interpreted as approval.
 ## Audit Requirement
 
 A temporal denial must remain machine-observable through the canonical PAC failure and classification path.
+
+Canonical temporal errors use the `temporal.` prefix. Expiration is emitted as `temporal.proof_expired`; state mutation is emitted as `temporal.proof_invalidated`. This corrects the prior expiration message form (`temporal proof expired`), which did not enter the temporal classification branch.
 
 The temporal lifecycle must not introduce a second error authority or transport-specific enforcement path.
 
