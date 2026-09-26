@@ -6,5 +6,7 @@
   },
   "proof_timestamp": 1778381368,
   "current_state": "draft",
-  "requested_state": "approved"
+  "requested_state": "approved",
+  "state_id_at_proof": "STATE-A",
+  "current_state_id": "STATE-A"
 }
