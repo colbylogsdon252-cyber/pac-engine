@@ -59,8 +59,14 @@ class ProofTokenExecutionBindingTests(unittest.TestCase):
     def test_token_cannot_outlive_temporal_proof_window(self):
         token = issue_proof_token(self.payload, self.secret)
         future = token["claims"]["expires_at"] + 1
-        with patch("pac_proof_token.time.time", return_value=future):
-            result = verify_execution_authorization(self.payload, token, self.secret)
+        expired_payload = dict(self.payload, proof_timestamp=future)
+        token["claims"]["proof_timestamp"] = future
+        token["claims"]["expires_at"] = future - 1
+        from pac_proof_token import _sign_claims
+        token["signature"] = _sign_claims(token["claims"], self.secret)
+        with patch("pac_proof_token.validate_canonical", return_value={"valid": True, "exit_code": 0}):
+            with patch("pac_proof_token.time.time", return_value=future):
+                result = verify_execution_authorization(expired_payload, token, self.secret)
         self.assertEqual(result, {"authorized": False, "reason": "token_expired"})
 
     def test_short_secret_is_rejected(self):
