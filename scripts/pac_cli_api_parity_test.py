@@ -5,7 +5,7 @@ from pathlib import Path
 
 import requests
 
-ROOT = Path("/workspaces/pac-engine")
+ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "examples"
 API_URL = "http://127.0.0.1:8000/validate"
 
