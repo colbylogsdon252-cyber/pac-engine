@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import tempfile
 import time
 import unittest
 
@@ -20,8 +22,12 @@ class ProtectedExecutionReplayGuardTests(unittest.TestCase):
             "current_state_id": "STATE-A",
         }
         self.token = issue_proof_token(self.payload, self.secret)
-        self.store = ExecutionReplayStore()
+        self.tempdir = tempfile.TemporaryDirectory()
+        self.store = ExecutionReplayStore(os.path.join(self.tempdir.name, "replay.sqlite3"))
         self.calls = 0
+
+    def tearDown(self):
+        self.tempdir.cleanup()
 
     def action(self):
         self.calls += 1
