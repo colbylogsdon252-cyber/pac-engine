@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - protected-execution-replay-guard-v1
+      - durable-execution-state-v1
       - main
   pull_request:
     branches:
@@ -35,6 +36,9 @@ jobs:
 
       - name: Protected execution replay regression
         run: python -m unittest tests.test_protected_execution_replay_guard -v
+
+      - name: Durable execution state regression
+        run: python -m unittest tests.test_durable_execution_state -v
 
       - name: Canonical CLI/API parity
         run: |
