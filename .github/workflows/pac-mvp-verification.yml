@@ -5,6 +5,7 @@ on:
     branches:
       - protected-execution-replay-guard-v1
       - durable-execution-state-v1
+      - external-effect-reconciliation-v1
       - main
   pull_request:
     branches:
@@ -39,6 +40,9 @@ jobs:
 
       - name: Durable execution state regression
         run: python -m unittest tests.test_durable_execution_state -v
+
+      - name: External effect reconciliation regression
+        run: python -m unittest tests.test_external_effect_reconciliation -v
 
       - name: Canonical CLI/API parity
         run: |
