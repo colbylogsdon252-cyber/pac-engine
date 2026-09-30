@@ -6,6 +6,7 @@ on:
       - protected-execution-replay-guard-v1
       - durable-execution-state-v1
       - external-effect-reconciliation-v1
+      - downstream-adapter-contract-v1
       - main
   pull_request:
     branches:
@@ -43,6 +44,9 @@ jobs:
 
       - name: External effect reconciliation regression
         run: python -m unittest tests.test_external_effect_reconciliation -v
+
+      - name: Downstream adapter contract regression
+        run: python -m unittest tests.test_downstream_adapter_contract -v
 
       - name: Canonical CLI/API parity
         run: |
