@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from pac_protected_execution import DurableExecutionStore, execution_id_for_token
+from pac_downstream_adapter import AdapterCapabilities, AdapterClass, evaluate_authoritative_not_found
 from pac_proof_token import verify_execution_authorization
 
 
@@ -30,7 +31,7 @@ class ReconciliationEvidence:
 
 class ExternalEffectAdapter(Protocol):
     system_id: str
-    supports_idempotent_dispatch: bool
+    capabilities: AdapterCapabilities
 
     def dispatch(self, effect_id: str, operation: str, payload: dict) -> dict: ...
     def reconcile(
@@ -208,16 +209,27 @@ def reconcile_effect(
         return {"resolved": True, "state": "failed", "evidence": evidence_dict}
 
     if evidence.outcome == NOT_FOUND and evidence.authoritative_not_found:
+        capabilities = adapter.capabilities
+        observation_age = max(0, int(time.time()) - int(record["created_at"]))
+        decision = evaluate_authoritative_not_found(
+            capabilities, observation_age_seconds=observation_age
+        )
         store.transition(
             effect_id,
             ("dispatching", "acknowledged", "indeterminate"),
             "indeterminate",
-            evidence=evidence_dict,
+            evidence={**evidence_dict, "redispatch_policy": decision.reason},
         )
         return {
             "resolved": False,
             "state": "indeterminate",
-            "reason": "authoritative_not_found_requires_explicit_redispatch_policy",
+            "reason": (
+                "redispatch_eligible"
+                if decision.redispatch_eligible
+                else "authoritative_not_found_blocked"
+            ),
+            "redispatch_eligible": decision.redispatch_eligible,
+            "policy_reason": decision.reason,
             "evidence": evidence_dict,
         }
 
