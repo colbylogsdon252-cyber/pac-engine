@@ -17,11 +17,17 @@ from pac_external_effect import (
 )
 from pac_proof_token import issue_proof_token
 from pac_protected_execution import DurableExecutionStore, execution_id_for_token
+from pac_downstream_adapter import AdapterCapabilities, AdapterClass
 
 
 class FakeAdapter:
     system_id = "fake-payments"
-    supports_idempotent_dispatch = True
+    capabilities = AdapterCapabilities(
+        AdapterClass.A, True, True, True,
+        minimum_observation_seconds=0,
+        eventual_consistency_bound_seconds=0,
+        original_request_can_complete_late=False,
+    )
 
     def __init__(self):
         self.effects = {}
