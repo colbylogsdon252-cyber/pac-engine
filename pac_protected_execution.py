@@ -72,6 +72,23 @@ class DurableExecutionStore:
                 raise RuntimeError("execution claim is not active")
             connection.execute("COMMIT")
 
+    def resolve_indeterminate_complete(self, execution_id: str, result: Any) -> None:
+        encoded = json.dumps(result, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            cursor = connection.execute(
+                """
+                UPDATE pac_execution_state
+                SET state = 'completed', completed_at = ?, result_json = ?
+                WHERE execution_id = ? AND state = 'indeterminate'
+                """,
+                (int(time.time()), encoded, execution_id),
+            )
+            if cursor.rowcount != 1:
+                connection.execute("ROLLBACK")
+                raise RuntimeError("indeterminate execution is not recoverable")
+            connection.execute("COMMIT")
+
     def release(self, execution_id: str) -> None:
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
