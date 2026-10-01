@@ -7,6 +7,7 @@ on:
       - durable-execution-state-v1
       - external-effect-reconciliation-v1
       - downstream-adapter-contract-v1
+      - redispatch-authorization-recovery-v1
       - main
   pull_request:
     branches:
@@ -47,6 +48,9 @@ jobs:
 
       - name: Downstream adapter contract regression
         run: python -m unittest tests.test_downstream_adapter_contract -v
+
+      - name: Redispatch authorization recovery regression
+        run: python -m unittest tests.test_redispatch_recovery -v
 
       - name: Canonical CLI/API parity
         run: |
