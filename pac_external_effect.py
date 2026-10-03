@@ -5,6 +5,7 @@ import json
 import sqlite3
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Protocol
 
 from pac_protected_execution import DurableExecutionStore, execution_id_for_token
@@ -19,6 +20,15 @@ UNKNOWN = "UNKNOWN"
 
 TERMINAL_EFFECT_STATES = {"confirmed", "failed"}
 BLOCKING_EFFECT_STATES = {"dispatching", "acknowledged", "indeterminate"}
+
+ALLOWED_EFFECT_TRANSITIONS = {
+    "prepared": {"dispatching", "indeterminate"},
+    "dispatching": {"acknowledged", "confirmed", "failed", "indeterminate"},
+    "acknowledged": {"confirmed", "failed", "indeterminate"},
+    "indeterminate": {"dispatching", "confirmed", "failed", "indeterminate"},
+    "confirmed": set(),
+    "failed": set(),
+}
 
 
 @dataclass(frozen=True)
@@ -127,6 +137,48 @@ class ExternalEffectStore:
             raise RuntimeError("effect identity conflicts with persisted effect binding")
         return dict(row)
 
+    def claim_execution_and_prepare(
+        self,
+        execution_store: DurableExecutionStore,
+        effect_id: str,
+        execution_id: str,
+        downstream_system: str,
+        operation: str,
+        effect_payload: dict,
+    ) -> bool:
+        if Path(self.path).resolve() != Path(execution_store.path).resolve():
+            raise RuntimeError("execution and effect stores must share one PAC database")
+        digest = hashlib.sha256(_canonical_json(effect_payload)).hexdigest()
+        now = int(time.time())
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            execution_cursor = connection.execute(
+                """
+                INSERT OR IGNORE INTO pac_execution_state
+                    (execution_id, state, claimed_at)
+                VALUES (?, 'claimed', ?)
+                """,
+                (execution_id, now),
+            )
+            if execution_cursor.rowcount != 1:
+                connection.execute("ROLLBACK")
+                return False
+            try:
+                connection.execute(
+                    """
+                    INSERT INTO pac_external_effect
+                        (effect_id, execution_id, downstream_system, operation,
+                         request_digest, state, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, 'prepared', ?, ?)
+                    """,
+                    (effect_id, execution_id, downstream_system, operation, digest, now, now),
+                )
+            except sqlite3.IntegrityError:
+                connection.execute("ROLLBACK")
+                return False
+            connection.execute("COMMIT")
+            return True
+
     def transition(
         self,
         effect_id: str,
@@ -137,6 +189,15 @@ class ExternalEffectStore:
         evidence: dict | None = None,
         increment_attempt: bool = False,
     ) -> bool:
+        if not from_states:
+            raise ValueError("from_states must not be empty")
+        if to_state not in ALLOWED_EFFECT_TRANSITIONS:
+            raise ValueError("unknown effect state")
+        for source in from_states:
+            if source not in ALLOWED_EFFECT_TRANSITIONS:
+                raise ValueError("unknown source effect state")
+            if to_state not in ALLOWED_EFFECT_TRANSITIONS[source]:
+                raise ValueError(f"illegal effect transition: {source} -> {to_state}")
         placeholders = ",".join("?" for _ in from_states)
         assignments = ["state = ?", "updated_at = ?"]
         params: list[Any] = [to_state, int(time.time())]
@@ -167,7 +228,33 @@ class ExternalEffectStore:
         return None if row is None else dict(row)
 
 
+def _validated_evidence(value: Any) -> ReconciliationEvidence:
+    if not isinstance(value, ReconciliationEvidence):
+        raise ValueError("adapter reconciliation evidence must be ReconciliationEvidence")
+    if value.outcome not in {CONFIRMED, NOT_FOUND, FAILED, UNKNOWN}:
+        raise ValueError("adapter reconciliation outcome is invalid")
+    if value.downstream_reference is not None and not isinstance(value.downstream_reference, str):
+        raise ValueError("downstream_reference must be a string or null")
+    if not isinstance(value.authoritative_not_found, bool):
+        raise ValueError("authoritative_not_found must be boolean")
+    if value.detail is not None and not isinstance(value.detail, str):
+        raise ValueError("evidence detail must be a string or null")
+    if value.authoritative_not_found and value.outcome != NOT_FOUND:
+        raise ValueError("authoritative_not_found is only valid with NOT_FOUND")
+    return value
+
+
+def _validated_dispatch_response(value: Any) -> dict:
+    if not isinstance(value, dict):
+        raise ValueError("adapter dispatch response must be a dict")
+    reference = value.get("downstream_reference")
+    if reference is not None and not isinstance(reference, str):
+        raise ValueError("dispatch downstream_reference must be a string or null")
+    return value
+
+
 def _evidence_dict(evidence: ReconciliationEvidence) -> dict:
+    evidence = _validated_evidence(evidence)
     return {
         "outcome": evidence.outcome,
         "downstream_reference": evidence.downstream_reference,
@@ -185,27 +272,48 @@ def reconcile_effect(
     if record is None:
         return {"resolved": False, "reason": "effect_not_found"}
 
-    evidence = adapter.reconcile(effect_id, record["downstream_reference"])
-    evidence_dict = _evidence_dict(evidence)
+    try:
+        evidence = _validated_evidence(
+            adapter.reconcile(effect_id, record["downstream_reference"])
+        )
+        evidence_dict = _evidence_dict(evidence)
+    except Exception as exc:
+        store.transition(
+            effect_id,
+            ("dispatching", "acknowledged", "indeterminate"),
+            "indeterminate",
+            evidence={"outcome": UNKNOWN, "detail": f"invalid_adapter_evidence:{type(exc).__name__}"},
+        )
+        return {
+            "resolved": False,
+            "state": "indeterminate",
+            "reason": "invalid_adapter_evidence",
+        }
 
     if evidence.outcome == CONFIRMED:
-        store.transition(
+        transitioned = store.transition(
             effect_id,
             ("dispatching", "acknowledged", "indeterminate"),
             "confirmed",
             downstream_reference=evidence.downstream_reference,
             evidence=evidence_dict,
         )
+        current = store.get(effect_id)
+        if not transitioned and (current is None or current["state"] != "confirmed"):
+            return {"resolved": False, "state": None if current is None else current["state"], "reason": "reconciliation_state_race"}
         return {"resolved": True, "state": "confirmed", "evidence": evidence_dict}
 
     if evidence.outcome == FAILED:
-        store.transition(
+        transitioned = store.transition(
             effect_id,
             ("dispatching", "acknowledged", "indeterminate"),
             "failed",
             downstream_reference=evidence.downstream_reference,
             evidence=evidence_dict,
         )
+        current = store.get(effect_id)
+        if not transitioned and (current is None or current["state"] != "failed"):
+            return {"resolved": False, "state": None if current is None else current["state"], "reason": "reconciliation_state_race"}
         return {"resolved": True, "state": "failed", "evidence": evidence_dict}
 
     if evidence.outcome == NOT_FOUND and evidence.authoritative_not_found:
@@ -278,17 +386,20 @@ def execute_external_effect(
         if existing["state"] == "failed":
             return {"executed": False, "reason": "effect_failed", "effect_id": effect_id}
 
-    if not execution_store.claim(execution_id):
+    if not effect_store.claim_execution_and_prepare(
+        execution_store,
+        effect_id,
+        execution_id,
+        adapter.system_id,
+        operation,
+        effect_payload,
+    ):
         return {
             "executed": False,
-            "reason": "authorization_replayed",
+            "reason": "authorization_replayed_or_effect_conflict",
             "execution_id": execution_id,
             "execution_state": execution_store.state(execution_id),
         }
-
-    effect_store.prepare(
-        effect_id, execution_id, adapter.system_id, operation, effect_payload
-    )
     if not effect_store.transition(
         effect_id, ("prepared",), "dispatching", increment_attempt=True
     ):
@@ -296,7 +407,9 @@ def execute_external_effect(
         return {"executed": False, "reason": "effect_dispatch_claim_failed", "effect_id": effect_id}
 
     try:
-        response = adapter.dispatch(effect_id, operation, effect_payload)
+        response = _validated_dispatch_response(
+            adapter.dispatch(effect_id, operation, effect_payload)
+        )
     except Exception:
         effect_store.transition(effect_id, ("dispatching",), "indeterminate")
         execution_store.mark_indeterminate(execution_id)
