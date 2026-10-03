@@ -10,6 +10,7 @@ on:
       - redispatch-authorization-recovery-v1
       - hardening-canonical-path-consolidation-v1
       - hardening-provenance-separation-v1
+      - hardening-crash-race-state-v1
       - main
   pull_request:
     branches:
@@ -53,6 +54,9 @@ jobs:
 
       - name: Redispatch authorization recovery regression
         run: python -m unittest tests.test_redispatch_recovery -v
+
+      - name: Crash race and state hardening regression
+        run: python -m unittest tests.test_crash_race_state_hardening -v
 
       - name: Active runtime boundary
         run: |
