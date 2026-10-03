@@ -355,38 +355,6 @@ def validate_state_transition_contract(contract):
 
     return errors
 
-    state_contract_errors = validate_state_transition_contract(contract)
-    if state_contract_errors:
-        emit_invalid(state_contract_errors, 3)
-
-
-    # PAC: contract integrity enforcement
-    if not contract.get('required_fields') and not contract.get('field_types'):
-        emit_invalid(["contract defines no enforceable rules"], 3)
-
-    temporal_errors = validate_temporal_validity(payload, contract)
-
-    if temporal_errors:
-        emit_invalid(temporal_errors, 3)
-
-
-    state_errors = validate_state_transition(payload, contract)
-    if state_errors:
-        emit_invalid(state_errors, 3)
-
-    schema_errors = validate_against_contract(payload, contract)
-    if schema_errors:
-        emit_invalid(schema_errors, 3)
-
-
-    errors = validate_payload(payload, contract)
-
-    if errors:
-        emit_invalid(errors, 1)
-
-    emit_valid("Payload conforms to PAC contract")
-
-
 
 def validate_canonical(payload):
     """
