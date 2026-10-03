@@ -8,6 +8,7 @@ on:
       - external-effect-reconciliation-v1
       - downstream-adapter-contract-v1
       - redispatch-authorization-recovery-v1
+      - hardening-canonical-path-consolidation-v1
       - main
   pull_request:
     branches:

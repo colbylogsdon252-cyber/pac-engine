@@ -199,79 +199,36 @@ def validate_state_transition(payload, contract):
     requested_field = st.get("requested_state_field")
     allowed = st.get("allowed", {})
 
-    errors = []
-
-    current = payload.get(current_field)
-    requested = payload.get(requested_field)
-    # --- PAC: STRICT TRANSITION ENFORCEMENT ---
-    if not isinstance(allowed, dict):
-        return ["state_transition.allowed must be a dict"]
-
-    if current not in allowed:
-        errors.append(f"undefined current state: {current}")
-        return errors
-
-    allowed_targets = allowed.get(current)
-
-    if not isinstance(allowed_targets, list):
-        errors.append(f"allowed transitions for '{current}' must be a list")
-        return errors
-
-    if requested not in allowed_targets:
-        errors.append(
-            f"invalid state transition: {current} -> {requested} "
-            f"(allowed: {allowed_targets})"
-        )
-        return errors
-    # --- END PAC ENFORCEMENT ---
-
-
-    # ----------------------------------------
-    # PAC: STATE EVOLUTION ENFORCEMENT
-    # ----------------------------------------
-
     if current_field is None or requested_field is None:
         return ["state_transition config missing field definitions"]
 
+    current = payload.get(current_field)
+    requested = payload.get(requested_field)
+
     if current is None:
-        errors.append(f"missing current state: {current_field}")
-        return errors
+        return [f"missing current state: {current_field}"]
 
     if requested is None:
-        errors.append(f"missing requested state: {requested_field}")
-        return errors
+        return [f"missing requested state: {requested_field}"]
 
     if not isinstance(allowed, dict):
         return ["state_transition.allowed must be a dict"]
 
     if current not in allowed:
-        errors.append(f"no transition rules defined for current state: {current}")
-        return errors
+        return [f"undefined current state: {current}"]
 
     allowed_targets = allowed.get(current)
-
     if not isinstance(allowed_targets, list):
-        errors.append(f"allowed transitions for '{current}' must be a list")
-        return errors
+        return [f"allowed transitions for '{current}' must be a list"]
 
     if requested not in allowed_targets:
-        errors.append(
+        return [
             f"invalid state transition: {current} -> {requested} "
             f"(allowed: {allowed_targets})"
-        )
-
-    return errors
-
-    if current not in allowed:
-        return [f"state_transition.unknown_current_state: {current}"]
-
-    if requested not in allowed:
-        return [f"state_transition.unknown_requested_state: {requested}"]
-
-    if requested not in allowed.get(current, []):
-        return [f"state_transition.invalid: {current} -> {requested}"]
+        ]
 
     return []
+
 
 def validate_required_fields(payload, required_fields):
     missing = []
@@ -398,38 +355,6 @@ def validate_state_transition_contract(contract):
 
     return errors
 
-    state_contract_errors = validate_state_transition_contract(contract)
-    if state_contract_errors:
-        emit_invalid(state_contract_errors, 3)
-
-
-    # PAC: contract integrity enforcement
-    if not contract.get('required_fields') and not contract.get('field_types'):
-        emit_invalid(["contract defines no enforceable rules"], 3)
-
-    temporal_errors = validate_temporal_validity(payload, contract)
-
-    if temporal_errors:
-        emit_invalid(temporal_errors, 3)
-
-
-    state_errors = validate_state_transition(payload, contract)
-    if state_errors:
-        emit_invalid(state_errors, 3)
-
-    schema_errors = validate_against_contract(payload, contract)
-    if schema_errors:
-        emit_invalid(schema_errors, 3)
-
-
-    errors = validate_payload(payload, contract)
-
-    if errors:
-        emit_invalid(errors, 1)
-
-    emit_valid("Payload conforms to PAC contract")
-
-
 
 def validate_canonical(payload):
     """
@@ -513,43 +438,15 @@ def main():
         print("Usage: python pac_contract_validator.py <payload.json>")
         sys.exit(3)
 
-    payload_path = sys.argv[1]
-
-    payload, err = load_json(payload_path)
+    payload, err = load_json(sys.argv[1])
     if payload is None:
         print(err)
         sys.exit(3)
 
-    if not isinstance(payload, dict):
-        emit_invalid(["payload must be an object/dict"], 3)
+    result = validate_canonical(payload)
+    print(json.dumps(result, indent=2))
+    sys.exit(result.get("exit_code", 3))
 
-    contract = load_contract()
-
-    # PAC: contract integrity enforcement
-    if not contract.get('required_fields') and not contract.get('field_types'):
-        emit_invalid(["contract defines no enforceable rules"], 3)
-
-    state_contract_errors = validate_state_transition_contract(contract)
-    if state_contract_errors:
-        emit_invalid(state_contract_errors, 3)
-
-    temporal_errors = validate_temporal_validity(payload, contract)
-    if temporal_errors:
-        emit_invalid(temporal_errors, 3)
-
-    state_errors = validate_state_transition(payload, contract)
-    if state_errors:
-        emit_invalid(state_errors, 3)
-
-    schema_errors = validate_against_contract(payload, contract)
-    if schema_errors:
-        emit_invalid(schema_errors, 3)
-
-    errors = validate_payload(payload, contract)
-    if errors:
-        emit_invalid(errors, 1)
-
-    emit_valid("Payload conforms to PAC contract")
 
 if __name__ == "__main__":
     main()

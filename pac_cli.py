@@ -1,52 +1,35 @@
-import sys
 import json
+import sys
 from pathlib import Path
 
-from pac_engine_v1_interface import evaluate_payload
+from pac_contract_validator import validate_canonical
 
 
 def load_json(path):
     try:
-        return json.loads(Path(path).read_text())
-    except Exception as e:
-        print(json.dumps({
-            "decision": "HALT",
-            "reason": "Invalid JSON input",
-            "error": str(e)
-        }, indent=2))
-        sys.exit(1)
+        return json.loads(Path(path).read_text()), None
+    except Exception as exc:
+        return None, str(exc)
 
 
 def main():
-    if len(sys.argv) < 3:
+    if len(sys.argv) != 3 or sys.argv[1] != "validate":
         print("Usage: pac validate <input.json>")
-        sys.exit(1)
+        sys.exit(3)
 
-    command = sys.argv[1]
-    file_path = sys.argv[2]
+    payload, error = load_json(sys.argv[2])
+    if error is not None:
+        print(json.dumps({
+            "valid": False,
+            "errors": [f"Failed to load JSON: {error}"],
+            "error_classification": [],
+            "exit_code": 3,
+        }, indent=2))
+        sys.exit(3)
 
-    if command != "validate":
-        print("Unknown command:", command)
-        sys.exit(1)
-
-    payload = load_json(file_path)
-
-    result = evaluate_payload(payload)
-
+    result = validate_canonical(payload)
     print(json.dumps(result, indent=2))
-    decision = result.get("decision")
-
-    if decision == "APPROVE":
-        exit_code = 0
-    elif decision == "HALT":
-        exit_code = 1
-    elif decision == "REJECT":
-        exit_code = 2
-    else:
-        exit_code = 3
-
-    sys.exit(exit_code)
-
+    sys.exit(result.get("exit_code", 3))
 
 
 if __name__ == "__main__":
