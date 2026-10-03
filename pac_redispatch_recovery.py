@@ -105,6 +105,61 @@ class RedispatchAuthorizationStore:
             authorization_id, effect_id, evidence_digest, policy_reason
         )
 
+    def consume_and_begin_recovery(
+        self,
+        authorization: RedispatchAuthorization,
+        effect_store: ExternalEffectStore,
+    ) -> bool:
+        if self.path != effect_store.path:
+            raise RuntimeError("authorization and effect stores must share one PAC database")
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            authority = connection.execute(
+                """
+                UPDATE pac_redispatch_authorization
+                SET state = 'consumed', consumed_at = ?
+                WHERE authorization_id = ? AND effect_id = ?
+                  AND evidence_digest = ? AND policy_reason = ?
+                  AND state = 'authorized'
+                """,
+                (
+                    int(time.time()),
+                    authorization.authorization_id,
+                    authorization.effect_id,
+                    authorization.evidence_digest,
+                    authorization.policy_reason,
+                ),
+            )
+            if authority.rowcount != 1:
+                connection.execute("ROLLBACK")
+                return False
+            effect = connection.execute(
+                """
+                UPDATE pac_external_effect
+                SET state = 'dispatching', updated_at = ?,
+                    attempt_count = attempt_count + 1,
+                    evidence_json = ?
+                WHERE effect_id = ? AND state = 'indeterminate'
+                """,
+                (
+                    int(time.time()),
+                    json.dumps(
+                        {
+                            "redispatch_authorization_id": authorization.authorization_id,
+                            "policy_reason": authorization.policy_reason,
+                        },
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ),
+                    authorization.effect_id,
+                ),
+            )
+            if effect.rowcount != 1:
+                connection.execute("ROLLBACK")
+                return False
+            connection.execute("COMMIT")
+            return True
+
     def consume(self, authorization: RedispatchAuthorization) -> bool:
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -180,23 +235,20 @@ def recover_external_effect(
     ):
         return {"executed": False, "reason": "effect_binding_mismatch"}
 
-    if not authorization_store.consume(authorization):
-        return {"executed": False, "reason": "redispatch_authorization_unavailable"}
-
-    if not effect_store.transition(
-        authorization.effect_id,
-        ("indeterminate",),
-        "dispatching",
-        increment_attempt=True,
-        evidence={
-            "redispatch_authorization_id": authorization.authorization_id,
-            "policy_reason": authorization.policy_reason,
-        },
+    if not authorization_store.consume_and_begin_recovery(
+        authorization, effect_store
     ):
-        return {"executed": False, "reason": "redispatch_transition_failed"}
+        return {"executed": False, "reason": "redispatch_authorization_unavailable"}
 
     try:
         response = adapter.dispatch(authorization.effect_id, operation, effect_payload)
+        if not isinstance(response, dict):
+            raise ValueError("adapter dispatch response must be a dict")
+        if (
+            response.get("downstream_reference") is not None
+            and not isinstance(response.get("downstream_reference"), str)
+        ):
+            raise ValueError("dispatch downstream_reference must be a string or null")
     except Exception:
         effect_store.transition(
             authorization.effect_id, ("dispatching",), "indeterminate"
