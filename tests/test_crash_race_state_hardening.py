@@ -125,7 +125,7 @@ class CrashRaceStateHardeningTests(unittest.TestCase):
         self.assertFalse(result["executed"])
         self.assertEqual(result["reason"], "dispatch_outcome_indeterminate")
         self.assertEqual(self.effects.get(result["effect_id"])["state"], "indeterminate")
-        self.assertEqual(self.execution.state(result["execution_id"]), "indeterminate")
+        self.assertEqual(self.execution.state(self.execution_id), "indeterminate")
 
     def test_malformed_reconciliation_evidence_fails_closed(self):
         self.make_indeterminate()
