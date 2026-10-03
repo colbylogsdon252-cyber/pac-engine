@@ -2,17 +2,12 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 import uvicorn
 
-from pac_contract_validator import (
-    load_contract,
-    validate_canonical
-)
+from pac_contract_validator import validate_canonical
 
 app = FastAPI(
     title="PAC API v1",
     version="1.0.0"
 )
-
-CONTRACT = load_contract()
 
 
 def map_error_classification_to_http_status(result: dict) -> int:
