@@ -9,6 +9,7 @@ on:
       - downstream-adapter-contract-v1
       - redispatch-authorization-recovery-v1
       - hardening-canonical-path-consolidation-v1
+      - hardening-provenance-separation-v1
       - main
   pull_request:
     branches:
@@ -52,6 +53,34 @@ jobs:
 
       - name: Redispatch authorization recovery regression
         run: python -m unittest tests.test_redispatch_recovery -v
+
+      - name: Active runtime boundary
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          forbidden = [
+              "pac_engine_v1_interface.py",
+              "pac_engine_v1_0_core.py",
+              "pac_engine_v1_0_core_pre_hardening.py",
+              "pac_engine_v1_1_core.py",
+              "pac_engine_v1_1_core_frozen.py",
+              "pac_engine_v1_attack_harness.py",
+              "pac_engine_v1_attack_harness_wave2.py",
+              "pac_engine_v1_attack_harness_wave3.py",
+              "pac_engine_v1_attack_harness_wave3_frozen.py",
+              "pac_engine_v1_interface_attack_tests.py",
+              "pac_engine_v1_interface_tests.py",
+              "pac_engine_v1_test_harness.py",
+              "test_no_double_dict.py",
+              ".pac_backups",
+          ]
+          present = [path for path in forbidden if Path(path).exists()]
+          if present:
+              raise SystemExit(f"legacy artifacts leaked into active root: {present}")
+          if not Path("provenance/README.md").is_file():
+              raise SystemExit("provenance boundary manifest missing")
+          PY
 
       - name: Canonical CLI/API parity
         run: |
