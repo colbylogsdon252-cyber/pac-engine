@@ -55,7 +55,7 @@ def expected_http(result):
 
 def run_cli(path):
     proc = subprocess.run(
-        ["python", "pac_contract_validator.py", str(path)],
+        ["python", "pac_cli.py", "validate", str(path)],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -136,6 +136,6 @@ if failures:
 
 print("=" * 70)
 print("GLOBAL RESULT: PASS")
-print("PAC API IS CANONICALLY BOUND TO CLI VALIDATOR")
+print("PAC CLI AND API ARE BOUND TO validate_canonical()")
 print("HTTP TRANSPORT MAPPING IS VALID")
 print("=" * 70)
