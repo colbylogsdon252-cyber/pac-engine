@@ -375,18 +375,48 @@ def execute_external_effect(
 
     if existing is not None:
         if existing["state"] == "confirmed":
-            return {"executed": False, "reason": "effect_already_confirmed", "effect_id": effect_id}
-        if existing["state"] in BLOCKING_EFFECT_STATES:
+            completed = execution_store.complete_confirmed_effect(
+                execution_id,
+                {
+                    "effect_id": effect_id,
+                    "downstream_reference": existing["downstream_reference"],
+                    "recovered": True,
+                },
+            )
+            return {
+                "executed": False,
+                "reason": "effect_already_confirmed",
+                "effect_id": effect_id,
+                "execution_recovered": completed,
+            }
+        if existing["state"] == "prepared":
+            execution_state = execution_store.state(execution_id)
+            if execution_state != "claimed":
+                return {
+                    "executed": False,
+                    "reason": "prepared_effect_execution_state_mismatch",
+                    "effect_id": effect_id,
+                    "execution_state": execution_state,
+                }
+            if not effect_store.transition(
+                effect_id, ("prepared",), "dispatching", increment_attempt=True
+            ):
+                return {
+                    "executed": False,
+                    "reason": "prepared_effect_resume_race",
+                    "effect_id": effect_id,
+                }
+        elif existing["state"] in BLOCKING_EFFECT_STATES:
             return {
                 "executed": False,
                 "reason": "reconciliation_required",
                 "effect_id": effect_id,
                 "effect_state": existing["state"],
             }
-        if existing["state"] == "failed":
+        elif existing["state"] == "failed":
             return {"executed": False, "reason": "effect_failed", "effect_id": effect_id}
 
-    if not effect_store.claim_execution_and_prepare(
+    if existing is None and not effect_store.claim_execution_and_prepare(
         execution_store,
         effect_id,
         execution_id,
@@ -400,11 +430,12 @@ def execute_external_effect(
             "execution_id": execution_id,
             "execution_state": execution_store.state(execution_id),
         }
-    if not effect_store.transition(
-        effect_id, ("prepared",), "dispatching", increment_attempt=True
-    ):
-        execution_store.mark_indeterminate(execution_id)
-        return {"executed": False, "reason": "effect_dispatch_claim_failed", "effect_id": effect_id}
+    if existing is None:
+        if not effect_store.transition(
+            effect_id, ("prepared",), "dispatching", increment_attempt=True
+        ):
+            execution_store.mark_indeterminate(execution_id)
+            return {"executed": False, "reason": "effect_dispatch_claim_failed", "effect_id": effect_id}
 
     try:
         response = _validated_dispatch_response(
@@ -430,10 +461,16 @@ def execute_external_effect(
 
     reconciliation = reconcile_effect(effect_id, adapter, effect_store)
     if reconciliation.get("state") == "confirmed":
-        execution_store.complete(
+        if not execution_store.complete_confirmed_effect(
             execution_id,
             {"effect_id": effect_id, "downstream_reference": downstream_reference},
-        )
+        ):
+            return {
+                "executed": False,
+                "reason": "confirmed_effect_execution_completion_failed",
+                "execution_id": execution_id,
+                "effect_id": effect_id,
+            }
         return {
             "executed": True,
             "reason": "external_effect_confirmed",
