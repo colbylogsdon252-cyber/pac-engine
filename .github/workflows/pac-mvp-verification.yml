@@ -11,6 +11,7 @@ on:
       - hardening-canonical-path-consolidation-v1
       - hardening-provenance-separation-v1
       - hardening-crash-race-state-v1
+      - hardening-adversarial-boundaries-v1
       - main
   pull_request:
     branches:
@@ -57,6 +58,9 @@ jobs:
 
       - name: Crash race and state hardening regression
         run: python -m unittest tests.test_crash_race_state_hardening -v
+
+      - name: Adversarial boundary hardening regression
+        run: python -m unittest tests.test_adversarial_boundary_hardening -v
 
       - name: Active runtime boundary
         run: |
