@@ -12,6 +12,7 @@ on:
       - hardening-provenance-separation-v1
       - hardening-crash-race-state-v1
       - hardening-adversarial-boundaries-v1
+      - hardening-secret-key-handling-v1
       - main
   pull_request:
     branches:
@@ -37,6 +38,9 @@ jobs:
 
       - name: Proof token regression
         run: python -m unittest tests.test_proof_token_execution_binding -v
+
+      - name: Secret and key handling regression
+        run: python -m unittest tests.test_secret_key_hardening -v
 
       - name: Temporal lifecycle regression
         run: python -m unittest tests.test_temporal_proof_lifecycle -v

@@ -6,6 +6,8 @@ import json
 import time
 from typing import Any
 
+from pac_key_management import ProofKeyring
+
 from pac_contract_validator import load_contract, validate_canonical
 
 
@@ -34,7 +36,7 @@ def _sign_claims(claims: dict, secret: str) -> str:
     return hmac.new(_require_secret(secret), _canonical_json(claims), hashlib.sha256).hexdigest()
 
 
-def issue_proof_token(payload: dict, secret: str) -> dict:
+def issue_proof_token(payload: dict, secret: str | ProofKeyring) -> dict:
     result = validate_canonical(payload)
     if not result.get("valid", False):
         raise ProofTokenError("canonical PAC validation did not authorize proof token issuance")
@@ -49,8 +51,12 @@ def issue_proof_token(payload: dict, secret: str) -> dict:
     state_id_at_proof = payload.get(temporal.get("state_id_at_proof_field", "state_id_at_proof"))
     current_state_id = payload.get(temporal.get("current_state_id_field", "current_state_id"))
 
+    key_id = secret.active_key_id if isinstance(secret, ProofKeyring) else None
+    signing_secret = secret.active().secret if isinstance(secret, ProofKeyring) else secret
+
     claims = {
         "version": TOKEN_VERSION,
+        "key_id": key_id,
         "payload_sha256": _payload_digest(payload),
         "proof_timestamp": proof_timestamp,
         "expires_at": proof_timestamp + max_age_seconds,
@@ -59,10 +65,10 @@ def issue_proof_token(payload: dict, secret: str) -> dict:
         "action": payload.get("action"),
         "target": payload.get("target"),
     }
-    return {"claims": claims, "signature": _sign_claims(claims, secret)}
+    return {"claims": claims, "signature": _sign_claims(claims, signing_secret)}
 
 
-def verify_execution_authorization(payload: dict, token: dict, secret: str) -> dict:
+def verify_execution_authorization(payload: dict, token: dict, secret: str | ProofKeyring) -> dict:
     result = validate_canonical(payload)
     if not result.get("valid", False):
         return {"authorized": False, "reason": "canonical_validation_failed", "validation": result}
@@ -76,7 +82,17 @@ def verify_execution_authorization(payload: dict, token: dict, secret: str) -> d
         return {"authorized": False, "reason": "token_malformed"}
 
     try:
-        expected_signature = _sign_claims(claims, secret)
+        if isinstance(secret, ProofKeyring):
+            key_id = claims.get("key_id")
+            if not isinstance(key_id, str):
+                return {"authorized": False, "reason": "token_key_id_missing"}
+            verification_key = secret.verification_key(key_id)
+            if verification_key is None:
+                return {"authorized": False, "reason": "token_key_unavailable_or_revoked"}
+            signing_secret = verification_key.secret
+        else:
+            signing_secret = secret
+        expected_signature = _sign_claims(claims, signing_secret)
     except ProofTokenError:
         return {"authorized": False, "reason": "token_secret_invalid"}
 
@@ -112,4 +128,5 @@ def verify_execution_authorization(payload: dict, token: dict, secret: str) -> d
         "reason": "proof_token_verified",
         "payload_sha256": claims["payload_sha256"],
         "expires_at": expires_at,
+        "key_id": claims.get("key_id"),
     }

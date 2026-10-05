@@ -71,7 +71,7 @@ Historical engines, interfaces, attack harnesses, backups, and failure artifacts
 
 Canonical validation approval alone is not a transferable execution credential. `issue_proof_token()` reruns canonical validation and creates a signed token binding the approved payload to its proof timestamp, expiry, state identities, action, target, and complete payload digest.
 
-`verify_execution_authorization()` revalidates the current payload and verifies the token signature, expiry, digest, and explicit bindings before protected execution may proceed. A token therefore authorizes only the exact proven payload while its proof remains valid.
+`verify_execution_authorization()` revalidates the current payload and verifies the token signature, expiry, digest, explicit bindings, and—when managed keys are used—the signed key identifier and revocation state before protected execution may proceed. A token therefore authorizes only the exact proven payload while its proof and signing key remain valid.\n\nManaged deployments use `ProofKeyring` with a runtime-mounted owner-only key file. Rotation changes the active key ID while retaining old non-revoked verification keys for the remaining token lifetime; revocation fails closed immediately. Signing secrets must not be committed or supplied inline through environment variables. See `docs/PAC_SECRET_KEY_HANDLING.md`.
 
 ## Durable execution
 
