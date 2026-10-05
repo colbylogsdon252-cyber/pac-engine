@@ -110,7 +110,8 @@ class RedispatchAuthorizationStore:
         authorization: RedispatchAuthorization,
         effect_store: ExternalEffectStore,
     ) -> bool:
-        if self.path != effect_store.path:
+        from pathlib import Path
+        if Path(self.path).resolve() != Path(effect_store.path).resolve():
             raise RuntimeError("authorization and effect stores must share one PAC database")
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -193,7 +194,11 @@ def authorize_redispatch(
     if record is None or record["state"] != "indeterminate":
         return {"authorized": False, "reason": "effect_not_indeterminate"}
 
-    if adapter.capabilities.adapter_class is AdapterClass.C:
+    try:
+        adapter_class = adapter.capabilities.adapter_class
+    except Exception:
+        return {"authorized": False, "reason": "invalid_adapter_capabilities"}
+    if adapter_class is AdapterClass.C:
         return {"authorized": False, "reason": "class_c_redispatch_forbidden"}
 
     reconciliation = reconcile_effect(effect_id, adapter, effect_store)
@@ -224,7 +229,11 @@ def recover_external_effect(
     if record is None or record["state"] != "indeterminate":
         return {"executed": False, "reason": "effect_not_recoverable"}
 
-    if adapter.capabilities.adapter_class is AdapterClass.C:
+    try:
+        adapter_class = adapter.capabilities.adapter_class
+    except Exception:
+        return {"executed": False, "reason": "invalid_adapter_capabilities"}
+    if adapter_class is AdapterClass.C:
         return {"executed": False, "reason": "class_c_redispatch_forbidden"}
 
     expected_digest = hashlib.sha256(_canonical_json(effect_payload)).hexdigest()
@@ -270,14 +279,19 @@ def recover_external_effect(
     reconciliation = reconcile_effect(authorization.effect_id, adapter, effect_store)
 
     if reconciliation.get("state") == "confirmed":
-        execution_store.resolve_indeterminate_complete(
+        if not execution_store.complete_confirmed_effect(
             record["execution_id"],
             {
                 "effect_id": authorization.effect_id,
                 "downstream_reference": downstream_reference,
                 "recovered": True,
             },
-        )
+        ):
+            return {
+                "executed": False,
+                "reason": "confirmed_effect_execution_completion_failed",
+                "effect_id": authorization.effect_id,
+            }
         return {
             "executed": True,
             "reason": "redispatch_confirmed",
