@@ -89,6 +89,35 @@ class DurableExecutionStore:
                 raise RuntimeError("indeterminate execution is not recoverable")
             connection.execute("COMMIT")
 
+    def complete_confirmed_effect(self, execution_id: str, result: Any) -> bool:
+        """Idempotently finalize an execution only after its external effect is confirmed."""
+        encoded = json.dumps(result, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT state FROM pac_execution_state WHERE execution_id = ?",
+                (execution_id,),
+            ).fetchone()
+            if row is None:
+                connection.execute("ROLLBACK")
+                return False
+            if row["state"] == "completed":
+                connection.execute("COMMIT")
+                return True
+            if row["state"] not in ("claimed", "indeterminate"):
+                connection.execute("ROLLBACK")
+                return False
+            cursor = connection.execute(
+                """
+                UPDATE pac_execution_state
+                SET state = 'completed', completed_at = ?, result_json = ?
+                WHERE execution_id = ? AND state IN ('claimed', 'indeterminate')
+                """,
+                (int(time.time()), encoded, execution_id),
+            )
+            connection.execute("COMMIT")
+            return cursor.rowcount == 1
+
     def release(self, execution_id: str) -> None:
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
