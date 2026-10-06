@@ -73,6 +73,12 @@ Canonical validation approval alone is not a transferable execution credential. 
 
 `verify_execution_authorization()` revalidates the current payload and verifies the token signature, expiry, digest, explicit bindings, and—when managed keys are used—the signed key identifier and revocation state before protected execution may proceed. A token therefore authorizes only the exact proven payload while its proof and signing key remain valid.\n\nManaged deployments use `ProofKeyring` with a runtime-mounted owner-only key file. Rotation changes the active key ID while retaining old non-revoked verification keys for the remaining token lifetime; revocation fails closed immediately. Signing secrets must not be committed or supplied inline through environment variables. See `docs/PAC_SECRET_KEY_HANDLING.md`.
 
+## Secret and key handling
+
+Hardened deployments use a file-mounted `ProofKeyring` with an explicit active `key_id`. New Proof Tokens bind that identifier into their signed claims. Rotation retains prior non-revoked verification keys while changing the active signing key; revocation fails closed immediately for tokens bound to the revoked key.
+
+Production key material is loaded from an owner-only secret file configured by `PAC_PROOF_KEYRING_FILE` and `PAC_PROOF_ACTIVE_KEY_ID`. Inline keyring secrets in environment variables are rejected. See `docs/PAC_SECRET_KEY_HANDLING.md`.
+
 ## Durable execution
 
 `DurableExecutionStore` persists execution authority consumption in SQLite. The execution identity is derived from the complete canonical Proof Token.
