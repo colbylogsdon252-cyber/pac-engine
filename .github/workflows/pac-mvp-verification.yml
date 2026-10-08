@@ -14,6 +14,7 @@ on:
       - hardening-adversarial-boundaries-v1
       - hardening-secret-key-handling-v1
       - hardening-deployment-key-startup-v1
+      - hardening-deployment-smoke-ci-v1
       - main
   pull_request:
     branches:
@@ -45,6 +46,9 @@ jobs:
 
       - name: Deployment startup regression
         run: python -m unittest tests.test_deployment_startup -v
+
+      - name: Fresh-process deployment smoke
+        run: python scripts/pac_deployment_smoke.py
 
       - name: Temporal lifecycle regression
         run: python -m unittest tests.test_temporal_proof_lifecycle -v

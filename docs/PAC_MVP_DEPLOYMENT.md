@@ -66,18 +66,13 @@ A deployment must preserve this authority sequence:
 
 Do not implement an application-level shortcut from validation `APPROVE` directly to a mutating downstream call. Validation is proof; the Proof Token and protected execution path carry execution authority.
 
-## Proof Token secret
+## Proof Token key configuration
 
-The current Proof Token implementation uses HMAC-SHA256 and requires signing-secret material of at least 32 UTF-8 bytes.
+Production startup requires `PAC_DEPLOYMENT_MODE=production`, `PAC_PROOF_ACTIVE_KEY_ID`, and `PAC_PROOF_KEYRING_FILE`. The keyring is a runtime-mounted, regular, owner-owned file with no group or other permissions; symlink mounts and inline `PAC_PROOF_KEYRING_JSON` are rejected. Missing, malformed, unknown, or revoked active keys prevent startup.
 
-Treat the signing secret as deployment secret material:
+New tokens are signed with the selected key ID. Rotation retains non-revoked verification keys until existing tokens expire; revocation blocks their tokens immediately. Key material must never be committed or logged. See `docs/PAC_SECRET_KEY_HANDLING.md` for the authoritative rotation and revocation procedure.
 
-- do not commit it to the repository;
-- do not put it into effect payloads, logs, effect evidence, or SQLite records;
-- keep issuance and verification on trusted PAC infrastructure;
-- rotate only with an explicit compatibility/migration plan because existing tokens depend on the signing key.
-
-Secret-management infrastructure and distributed key management are outside the current MVP implementation.
+The public `pac_api.py` service exposes canonical validation, not a production execution endpoint. Its successful startup alone does not establish full execution-service readiness. The smoke gate exercises execution modules using a controlled adapter and persistent local SQLite state.
 
 ## Adapter deployment contract
 
