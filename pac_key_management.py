@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import stat
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
@@ -56,7 +57,7 @@ def load_keyring_from_environment(
     keyring_file = env.get("PAC_PROOF_KEYRING_FILE")
     inline = env.get("PAC_PROOF_KEYRING_JSON")
 
-    if inline:
+    if inline is not None:
         raise KeyConfigurationError(
             "PAC_PROOF_KEYRING_JSON is forbidden; secrets must not be stored in environment variables"
         )
@@ -66,17 +67,25 @@ def load_keyring_from_environment(
         )
 
     path = Path(keyring_file)
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
     try:
-        mode = path.stat().st_mode & 0o777
-    except OSError as exc:
-        raise KeyConfigurationError("proof keyring file is unavailable") from exc
-    if mode & 0o077:
-        raise KeyConfigurationError("proof keyring file permissions must be owner-only")
-
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise KeyConfigurationError("proof keyring file is invalid") from exc
+        if path.is_symlink():
+            raise KeyConfigurationError("symlink secret mounts are forbidden")
+        fd = os.open(path, flags)
+        try:
+            metadata = os.fstat(fd)
+            if not stat.S_ISREG(metadata.st_mode):
+                raise KeyConfigurationError("proof keyring must be a regular file")
+            if metadata.st_uid != os.geteuid():
+                raise KeyConfigurationError("proof keyring must be owned by the runtime user")
+            if metadata.st_mode & 0o077:
+                raise KeyConfigurationError("proof keyring file permissions must be owner-only")
+            with os.fdopen(fd, "r", encoding="utf-8", closefd=False) as handle:
+                raw = json.load(handle)
+        finally:
+            os.close(fd)
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise KeyConfigurationError("proof keyring file is unavailable or invalid") from exc
 
     if not isinstance(raw, dict) or not isinstance(raw.get("keys"), list):
         raise KeyConfigurationError("proof keyring must contain a keys array")
