@@ -15,6 +15,7 @@ on:
       - hardening-secret-key-handling-v1
       - hardening-deployment-key-startup-v1
       - hardening-deployment-smoke-ci-v1
+      - release-candidate-certification-v1
       - main
   pull_request:
     branches:
