@@ -6,6 +6,7 @@ import os
 from pac_key_management import load_keyring_from_environment
 
 from pac_contract_validator import validate_canonical
+from pac_public_validation import register_public_validation
 
 def validate_startup_configuration(environ=None):
     env = os.environ if environ is None else environ
@@ -88,6 +89,9 @@ def validate(payload: dict):
         )
 
     return response_body
+
+
+register_public_validation(app, map_error_classification_to_http_status)
 
 
 if __name__ == "__main__":
