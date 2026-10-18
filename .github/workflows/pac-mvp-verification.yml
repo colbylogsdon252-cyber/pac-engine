@@ -16,6 +16,7 @@ on:
       - hardening-deployment-key-startup-v1
       - hardening-deployment-smoke-ci-v1
       - release-candidate-certification-v1
+      - expansion-v1-authenticated-validation-api
       - main
   pull_request:
     branches:
@@ -37,7 +38,7 @@ jobs:
       - name: Install runtime dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install fastapi uvicorn requests
+          python -m pip install fastapi uvicorn requests httpx2
 
       - name: Proof token regression
         run: python -m unittest tests.test_proof_token_execution_binding -v
@@ -50,6 +51,9 @@ jobs:
 
       - name: Fresh-process deployment smoke
         run: python scripts/pac_deployment_smoke.py
+
+      - name: Public validation API security and parity
+        run: python -m unittest tests.test_public_validation_api -v
 
       - name: Temporal lifecycle regression
         run: python -m unittest tests.test_temporal_proof_lifecycle -v
