@@ -14,7 +14,7 @@ pac = "pac_entrypoint:main"
 
 [tool.setuptools]
 py-modules = ["pac_entrypoint", "pac_cli", "pac_contract_validator"]
-include-package-data = true
+packages = ["contracts"]
 
-[tool.setuptools.data-files]
-"contracts" = ["contracts/pac_frozen_contract_v1.json"]
+[tool.setuptools.package-data]
+contracts = ["pac_frozen_contract_v1.json"]
