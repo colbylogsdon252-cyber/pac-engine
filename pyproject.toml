@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pac-proof-validator"
+version = "0.2.0"
+description = "PAC canonical validation CLI (not an execution authorization tool)"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+pac = "pac_entrypoint:main"
+
+[tool.setuptools]
+py-modules = ["pac_entrypoint", "pac_cli", "pac_contract_validator"]
+packages = ["contracts"]
+
+[tool.setuptools.package-data]
+contracts = ["pac_frozen_contract_v1.json"]

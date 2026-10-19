@@ -17,6 +17,7 @@ on:
       - hardening-deployment-smoke-ci-v1
       - release-candidate-certification-v1
       - expansion-v1-authenticated-validation-api
+      - expansion-v2-cli-sdk-embed
       - main
   pull_request:
     branches:
@@ -38,7 +39,7 @@ jobs:
       - name: Install runtime dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install fastapi uvicorn requests httpx2
+          python -m pip install fastapi uvicorn requests httpx2 setuptools wheel
 
       - name: Proof token regression
         run: python -m unittest tests.test_proof_token_execution_binding -v
@@ -54,6 +55,15 @@ jobs:
 
       - name: Public validation API security and parity
         run: python -m unittest tests.test_public_validation_api -v
+
+      - name: Packaged CLI regression
+        run: python -m unittest tests.test_packaged_cli -v
+
+      - name: TypeScript SDK and widget build
+        run: |
+          cd integrations/typescript
+          npm install --no-audit --no-fund
+          npm test
 
       - name: Temporal lifecycle regression
         run: python -m unittest tests.test_temporal_proof_lifecycle -v
