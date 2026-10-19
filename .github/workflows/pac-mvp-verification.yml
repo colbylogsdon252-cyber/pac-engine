@@ -17,6 +17,7 @@ on:
       - hardening-deployment-smoke-ci-v1
       - release-candidate-certification-v1
       - expansion-v1-authenticated-validation-api
+      - expansion-v2-cli-sdk-embed
       - main
   pull_request:
     branches:
@@ -54,6 +55,15 @@ jobs:
 
       - name: Public validation API security and parity
         run: python -m unittest tests.test_public_validation_api -v
+
+      - name: Packaged CLI regression
+        run: python -m unittest tests.test_packaged_cli -v
+
+      - name: TypeScript SDK and widget build
+        run: |
+          cd integrations/typescript
+          npm install --no-audit --no-fund
+          npm test
 
       - name: Temporal lifecycle regression
         run: python -m unittest tests.test_temporal_proof_lifecycle -v
