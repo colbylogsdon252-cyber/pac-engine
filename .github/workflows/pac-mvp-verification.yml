@@ -39,7 +39,7 @@ jobs:
       - name: Install runtime dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install fastapi uvicorn requests httpx2
+          python -m pip install fastapi uvicorn requests httpx2 setuptools wheel
 
       - name: Proof token regression
         run: python -m unittest tests.test_proof_token_execution_binding -v
