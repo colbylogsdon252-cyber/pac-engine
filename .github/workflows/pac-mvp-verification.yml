@@ -18,6 +18,7 @@ on:
       - release-candidate-certification-v1
       - expansion-v1-authenticated-validation-api
       - expansion-v2-cli-sdk-embed
+      - expansion-v3-durable-webhook-outbox
       - main
   pull_request:
     branches:
@@ -64,6 +65,9 @@ jobs:
           cd integrations/typescript
           npm install --no-audit --no-fund
           npm test
+
+      - name: Durable notification outbox regression
+        run: python -m unittest tests.test_notification_outbox -v
 
       - name: Temporal lifecycle regression
         run: python -m unittest tests.test_temporal_proof_lifecycle -v
