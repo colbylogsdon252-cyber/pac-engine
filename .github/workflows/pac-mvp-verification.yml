@@ -19,6 +19,7 @@ on:
       - expansion-v1-authenticated-validation-api
       - expansion-v2-cli-sdk-embed
       - expansion-v3-durable-webhook-outbox
+      - expansion-v4-atomic-state-events
       - main
   pull_request:
     branches:
@@ -68,6 +69,9 @@ jobs:
 
       - name: Durable notification outbox regression
         run: python -m unittest tests.test_notification_outbox -v
+
+      - name: Atomic state transition notification regression
+        run: python -m unittest tests.test_atomic_state_events -v
 
       - name: Temporal lifecycle regression
         run: python -m unittest tests.test_temporal_proof_lifecycle -v
