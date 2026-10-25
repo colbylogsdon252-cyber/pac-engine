@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from pac_protected_execution import DurableExecutionStore, execution_id_for_token
+from pac_atomic_events import ensure_table, enqueue_atomic
 from pac_downstream_adapter import AdapterCapabilities, AdapterClass, evaluate_authoritative_not_found
 from pac_proof_token import verify_execution_authorization
 
@@ -82,6 +83,7 @@ class ExternalEffectStore:
 
     def _initialize(self) -> None:
         with self._connect() as connection:
+            ensure_table(connection)
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS pac_external_effect (
@@ -217,6 +219,8 @@ class ExternalEffectStore:
                 f"WHERE effect_id = ? AND state IN ({placeholders})",
                 params,
             )
+            if cursor.rowcount == 1 and to_state == "indeterminate":
+                enqueue_atomic(connection, "effect.indeterminate", effect_id, {"state": "indeterminate"})
             connection.execute("COMMIT")
             return cursor.rowcount == 1
 
