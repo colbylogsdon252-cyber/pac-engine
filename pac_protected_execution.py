@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from pac_proof_token import verify_execution_authorization
+from pac_atomic_events import ensure_table, enqueue_atomic
 
 
 class DurableExecutionStore:
@@ -28,6 +29,7 @@ class DurableExecutionStore:
 
     def _initialize(self) -> None:
         with self._connect() as connection:
+            ensure_table(connection)
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS pac_execution_state (
@@ -70,6 +72,7 @@ class DurableExecutionStore:
             if cursor.rowcount != 1:
                 connection.execute("ROLLBACK")
                 raise RuntimeError("execution claim is not active")
+            enqueue_atomic(connection, "execution.completed", execution_id, {"state": "completed"})
             connection.execute("COMMIT")
 
     def resolve_indeterminate_complete(self, execution_id: str, result: Any) -> None:
@@ -87,6 +90,7 @@ class DurableExecutionStore:
             if cursor.rowcount != 1:
                 connection.execute("ROLLBACK")
                 raise RuntimeError("indeterminate execution is not recoverable")
+            enqueue_atomic(connection, "execution.completed", execution_id, {"state": "completed"})
             connection.execute("COMMIT")
 
     def complete_confirmed_effect(self, execution_id: str, result: Any) -> bool:
@@ -115,6 +119,8 @@ class DurableExecutionStore:
                 """,
                 (int(time.time()), encoded, execution_id),
             )
+            if cursor.rowcount == 1:
+                enqueue_atomic(connection, "execution.completed", execution_id, {"state": "completed"})
             connection.execute("COMMIT")
             return cursor.rowcount == 1
 
@@ -130,7 +136,7 @@ class DurableExecutionStore:
     def mark_indeterminate(self, execution_id: str) -> None:
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
-            connection.execute(
+            cursor = connection.execute(
                 """
                 UPDATE pac_execution_state
                 SET state = 'indeterminate'
@@ -138,6 +144,8 @@ class DurableExecutionStore:
                 """,
                 (execution_id,),
             )
+            if cursor.rowcount == 1:
+                enqueue_atomic(connection, "execution.indeterminate", execution_id, {"state": "indeterminate"})
             connection.execute("COMMIT")
 
     def state(self, execution_id: str) -> str | None:

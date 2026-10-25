@@ -12,7 +12,7 @@
 
 ## Explicitly excluded / not yet implemented
 
-- [ ] No automatic insertion of notification events into the protected execution/effect transactions; outbox enqueue is currently an independent operation. **Do not claim atomic state-change/event publication.**
+- [x] Atomic outbox writes now accompany execution completion, execution indeterminate transitions, and effect indeterminate transitions within their authoritative SQLite transactions. This does **not** imply every possible transition emits an event, nor guarantee end-to-end webhook delivery.
 - [ ] No production webhook transport, endpoint registration, subscriber tenancy, DNS/IP/SSRF protections, or secure signing-key mount lifecycle.
 - [ ] No continuously running worker, Slack/Discord/Twilio connection, customer notification delivery, or hosted endpoint.
 - [ ] No public SDK/npm publication, browser/IDE extension, production multi-tenant identity, or production execution-request API.
@@ -23,7 +23,8 @@
 - [ ] Full CI on exact final candidate SHA, including all original PAC gates, API, packaged CLI, SDK, and notification outbox tests.
 - [ ] Verify candidate SHA and immutable release tag; archive logs, dependency manifest, and release artifact digest.
 - [ ] Review tenant isolation, API authentication, rate limiting, public ingress, audit logging, and key rotation.
-- [ ] Integrate outbox writes in the **same durable transaction** as authoritative state transitions, with crash-injection and restart tests.
+- [x] Integrate covered state transitions and notification outbox writes in the **same durable SQLite transaction**, with rollback-on-event-failure and restart tests.
+- [ ] Complete transition coverage audit, concurrent/crash-injection matrix and notification retention policy for production acceptance.
 - [ ] Implement a production-safe webhook transport: fixed approved HTTPS destinations, DNS rebinding/SSRF controls, redirect refusal, TLS verification, timeouts, egress allowlisting, and signing-key mounts.
 - [ ] Exercise webhook duplicate deliveries, slow consumers, crash recovery, bounded retries, dead-letter inspection, replay-window verification, and secret rotation.
 - [ ] Test persistent database backup/restore and process crash recovery on the actual deployment host.
