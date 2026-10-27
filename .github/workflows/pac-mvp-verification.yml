@@ -20,6 +20,7 @@ on:
       - expansion-v2-cli-sdk-embed
       - expansion-v3-durable-webhook-outbox
       - expansion-v4-atomic-state-events
+      - expansion-v5-secure-webhook-worker
       - main
   pull_request:
     branches:
@@ -72,6 +73,9 @@ jobs:
 
       - name: Atomic state transition notification regression
         run: python -m unittest tests.test_atomic_state_events -v
+
+      - name: Secure webhook worker regression
+        run: python -m unittest tests.test_webhook_worker -v
 
       - name: Temporal lifecycle regression
         run: python -m unittest tests.test_temporal_proof_lifecycle -v
