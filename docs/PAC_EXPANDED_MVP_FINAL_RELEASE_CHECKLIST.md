@@ -1,6 +1,6 @@
 # PAC Expanded MVP — Final Deployment and Release Checklist
 
-**Status:** development, not production-certified. This is the preserved release scope boundary for increments 1–3.
+**Status:** development, not production-certified. This is the preserved release scope boundary for increments 1–5.
 
 ## Included in expanded source
 
@@ -13,8 +13,10 @@
 ## Explicitly excluded / not yet implemented
 
 - [x] Atomic outbox writes now accompany execution completion, execution indeterminate transitions, and effect indeterminate transitions within their authoritative SQLite transactions. This does **not** imply every possible transition emits an event, nor guarantee end-to-end webhook delivery.
-- [ ] No production webhook transport, endpoint registration, subscriber tenancy, DNS/IP/SSRF protections, or secure signing-key mount lifecycle.
-- [ ] No continuously running worker, Slack/Discord/Twilio connection, customer notification delivery, or hosted endpoint.
+- [x] Increment 5 includes a single fixed-destination HTTPS transport with public-IP DNS validation, DNS-pinned TLS, no redirects, timeouts, and owner-only file-mounted signing key.
+- [ ] Subscriber endpoint registration, tenant isolation, credential rotation, egress firewall allowlisting, and production transport certification remain outstanding.
+- [x] Explicit polling worker entry point exists; it is not auto-started with the API.
+- [ ] No deployed/operated worker, Slack/Discord/Twilio connection, verified customer notification delivery, or hosted endpoint.
 - [ ] No public SDK/npm publication, browser/IDE extension, production multi-tenant identity, or production execution-request API.
 - [ ] No external provider idempotency certification, distributed exactly-once guarantee, or production authorization.
 
@@ -25,7 +27,8 @@
 - [ ] Review tenant isolation, API authentication, rate limiting, public ingress, audit logging, and key rotation.
 - [x] Integrate covered state transitions and notification outbox writes in the **same durable SQLite transaction**, with rollback-on-event-failure and restart tests.
 - [ ] Complete transition coverage audit, concurrent/crash-injection matrix and notification retention policy for production acceptance.
-- [ ] Implement a production-safe webhook transport: fixed approved HTTPS destinations, DNS rebinding/SSRF controls, redirect refusal, TLS verification, timeouts, egress allowlisting, and signing-key mounts.
+- [x] Implement source-level fixed HTTPS destination validation, public-address DNS pinning, TLS hostname verification, redirect refusal, bounded timeouts, and owner-only signing-key mounts.
+- [ ] Validate deployment-specific outbound egress allowlisting, certificate and key rotation, operational monitoring, and end-to-end transport acceptance.
 - [ ] Exercise webhook duplicate deliveries, slow consumers, crash recovery, bounded retries, dead-letter inspection, replay-window verification, and secret rotation.
 - [ ] Test persistent database backup/restore and process crash recovery on the actual deployment host.
 - [ ] Verify all legacy PAC proof, execution, reconciliation, and redispatch fail-closed behavior.
