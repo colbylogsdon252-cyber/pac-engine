@@ -45,6 +45,12 @@ def validate_destination(url: str) -> tuple[str, str, int]:
             or parsed.password is not None or parsed.fragment or parsed.port not in (None, 443)):
         raise ValueError("Webhook destination must be HTTPS on port 443 without credentials")
     host = parsed.hostname
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        pass
+    else:
+        raise ValueError("Literal IP destinations are not permitted")
     if not host.isascii() or host.endswith(".") or not all(
         label and len(label) <= 63 and label.replace("-", "").isalnum() and not label.startswith("-") and not label.endswith("-")
         for label in host.split(".")
