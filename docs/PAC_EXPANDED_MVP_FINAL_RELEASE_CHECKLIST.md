@@ -1,6 +1,6 @@
 # PAC Expanded MVP — Final Deployment and Release Checklist
 
-**Status:** development, not production-certified. This is the preserved release scope boundary for increments 1–5.
+**Status:** development, not production-certified. This is the preserved release scope boundary for increments 1–6.
 
 ## Included in expanded source
 
@@ -14,7 +14,8 @@
 
 - [x] Atomic outbox writes now accompany execution completion, execution indeterminate transitions, and effect indeterminate transitions within their authoritative SQLite transactions. This does **not** imply every possible transition emits an event, nor guarantee end-to-end webhook delivery.
 - [x] Increment 5 includes a single fixed-destination HTTPS transport with public-IP DNS validation, DNS-pinned TLS, no redirects, timeouts, and owner-only file-mounted signing key.
-- [ ] Subscriber endpoint registration, tenant isolation, credential rotation, egress firewall allowlisting, and production transport certification remain outstanding.
+- [x] Optional local third-party keyway supports tenant-scoped endpoint provisioning, delivery queues and revocation; see PAC_OPTIONAL_WEBHOOK_KEYWAY_V6.md.
+- [ ] Authoritative tenant-attribution integration with canonical PAC outbox, independently authenticated provisioning, per-subscriber key rotation, egress allowlisting, and production multi-tenant certification remain outstanding.
 - [x] Explicit polling worker entry point exists; it is not auto-started with the API.
 - [ ] No deployed/operated worker, Slack/Discord/Twilio connection, verified customer notification delivery, or hosted endpoint.
 - [ ] No public SDK/npm publication, browser/IDE extension, production multi-tenant identity, or production execution-request API.
