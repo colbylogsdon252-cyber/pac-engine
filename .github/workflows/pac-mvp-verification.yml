@@ -22,6 +22,7 @@ on:
       - expansion-v4-atomic-state-events
       - expansion-v5-secure-webhook-worker
       - expansion-v6-tenant-webhook-routing
+      - expansion-v6-final-authoritative-routing
       - main
   pull_request:
     branches:
@@ -80,6 +81,9 @@ jobs:
 
       - name: Optional tenant webhook keyway regression
         run: python -m unittest tests.test_webhook_keyway -v
+
+      - name: Canonical tenant event attribution regression
+        run: python -m unittest tests.test_authoritative_event_router -v
 
       - name: Temporal lifecycle regression
         run: python -m unittest tests.test_temporal_proof_lifecycle -v
