@@ -10,6 +10,7 @@ import time
 import uuid
 
 from pac_webhook_keyway import WebhookKeyway
+from pac_atomic_events import ensure_table
 
 
 class AuthoritativeEventRouter:
@@ -17,6 +18,7 @@ class AuthoritativeEventRouter:
         self.pac_database = str(pac_database)
         self.keyway = WebhookKeyway(keyway_database)
         with self.connect() as db:
+            ensure_table(db)
             db.execute("""CREATE TABLE IF NOT EXISTS pac_subject_tenants (
                 subject_id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL)""")
             db.execute("""CREATE TABLE IF NOT EXISTS pac_tenant_event_exports (
