@@ -36,6 +36,11 @@ class AuthoritativeEventRouter:
             raise ValueError("Invalid subject identity")
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
+            existing_event = db.execute("SELECT 1 FROM pac_notification_outbox WHERE subject_id=? LIMIT 1", (subject_id,)).fetchone()
+            existing_owner = db.execute("SELECT tenant_id FROM pac_subject_tenants WHERE subject_id=?", (subject_id,)).fetchone()
+            if existing_event and existing_owner is None:
+                db.execute("ROLLBACK")
+                raise PermissionError("Cannot retroactively attribute an existing event")
             db.execute("INSERT OR IGNORE INTO pac_subject_tenants VALUES (?,?)", (subject_id,tenant_id))
             owner = db.execute("SELECT tenant_id FROM pac_subject_tenants WHERE subject_id=?",
                                (subject_id,)).fetchone()[0]
